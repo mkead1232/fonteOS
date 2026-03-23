@@ -1,3 +1,61 @@
 #!/bin/sh
 
-/bin/sh
+mkdir -p /proc /sys /dev /root /etc
+
+mount -t proc  proc  /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || mdev -s
+
+# set DNS before anything tries to use network
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
+# bring up network
+ip link set eth0 up 2>/dev/null
+udhcpc -i eth0 -q 2>/dev/null
+
+export HOME=/root
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export TERM=linux
+export TERMINFO=/usr/share/terminfo
+
+exec 0</dev/console
+exec 1>/dev/console
+exec 2>/dev/console
+
+stty sane
+stty erase '^?'
+stty -ixon
+
+# login screen
+clear
+echo ""
+echo "  Welcome to fonteOS"
+echo ""
+echo -n "  username: "
+read USER
+echo -n "  password: "
+stty -echo
+read PASS
+stty echo
+echo ""
+
+AUTH=0
+while IFS=: read -r U P; do
+    if [ "$U" = "$USER" ] && [ "$P" = "$PASS" ]; then
+        AUTH=1
+    fi
+done < /etc/users 2>/dev/null
+
+if [ ! -f /etc/users ]; then
+    AUTH=1
+fi
+
+if [ "$AUTH" = "0" ]; then
+    echo "  incorrect login."
+    sleep 2
+    exec /init
+fi
+
+export USER
+exec /usr/bin/setsid /bin/cttyhack /bin/zsh -l
