@@ -1,2 +1,1 @@
-boot filter=lfs diff=lfs merge=lfs -text
 boot-files/boot !text !filter !merge !diff
